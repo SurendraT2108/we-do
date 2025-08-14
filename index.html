@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Automatic Lights — On/Off Demo</title>
+  <style>
+    :root{
+      --bg:#111;
+      --panel:#1b1b1b;
+      --accent:#ffd24d;
+      --muted:#9aa0a6;
+    }
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system,Segoe UI, Roboto, "Helvetica Neue", Arial}
+    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#0b1220 0%, #07101a 100%);color:#e7eef8}
+
+    .card{
+      width:760px;
+      max-width:95vw;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:14px; padding:26px; box-shadow:0 12px 40px rgba(0,0,0,0.6);
+      display:grid; grid-template-columns: 1fr 320px; gap:20px; align-items:center;
+    }
+
+    .left{padding:12px}
+    h1{margin:0 0 8px 0;font-size:20px}
+    p.lead{margin:0 0 16px 0;color:var(--muted)}
+
+    /* Bulb */
+    .bulb-wrap{display:flex;align-items:center;justify-content:center;height:340px}
+    .bulb{
+      width:180px;height:260px;border-radius:120px 120px 80px 80px/140px 140px 60px 60px;
+      background:radial-gradient(circle at 30% 20%, rgba(255,255,255,0.95), rgba(255,255,255,0.75) 6%, rgba(255,255,255,0.4) 12%, rgba(255,255,255,0.15) 30%, rgba(0,0,0,0.0) 60%), linear-gradient(#222,#111);
+      position:relative;transition:all 450ms cubic-bezier(.2,.9,.2,1);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.7), inset 0 -6px 18px rgba(0,0,0,0.45);
+    }
+    .bulb.on{
+      background: radial-gradient(circle at 35% 18%, rgba(255,255,200,1), rgba(255,245,200,0.9) 6%, rgba(255,240,170,0.7) 12%, rgba(255,190,50,0.25) 40%, rgba(0,0,0,0) 65%), linear-gradient(#fff9d9,#ffd46a);
+      box-shadow: 0 30px 120px rgba(255,200,60,0.18), 0 10px 40px rgba(0,0,0,0.5);
+      transform: translateY(-6px) scale(1.02);
+    }
+    .bulb::after{content:'';position:absolute;left:50%;transform:translateX(-50%);bottom:-40px;width:120px;height:64px;border-radius:8px;background:linear-gradient(#333,#111);}
+    .filament{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;opacity:0.0;transition:opacity 400ms}
+    .bulb.on .filament{opacity:1}
+
+    /* Controls panel */
+    .panel{background:rgba(255,255,255,0.02);padding:18px;border-radius:10px}
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+    .row{display:flex;gap:10px;align-items:center}
+    .btn{background:transparent;border:1px solid rgba(255,255,255,0.08);padding:10px 12px;border-radius:8px;color:inherit;cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),#ffb84d);color:#111;border:none}
+
+    .status{margin-top:12px;font-size:14px}
+    .small{font-size:13px;color:var(--muted)}
+
+    .switch{display:inline-flex;align-items:center;gap:8px}
+    .switch input{display:none}
+    .toggle{width:46px;height:26px;background:#242424;border-radius:999px;position:relative;cursor:pointer}
+    .toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left 200ms}
+    input:checked + .toggle{background:linear-gradient(90deg,var(--accent),#ffb84d)}
+    input:checked + .toggle::after{left:23px}
+
+    footer{grid-column:1/-1;margin-top:8px;color:var(--muted);font-size:13px}
+
+    @media(max-width:720px){.card{grid-template-columns:1fr;padding:18px}.bulb-wrap{height:220px}}
+  </style>
+</head>
+<body>
+  <div class="card" role="application">
+    <div class="left">
+      <h1>Automatic Lights — On/Off Demo</h1>
+      <p class="lead">This demo shows a bulb that can be controlled manually or automatically.
+      Automatic modes include a time-based schedule (night/day) and a motion-sensor simulator.</p>
+
+      <div class="bulb-wrap">
+        <div id="bulb" class="bulb" aria-live="polite" aria-label="Room light">
+          <div class="filament"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <aside class="panel">
+      <div>
+        <label>Automatic: <span class="small">(enables automatic rules)</span></label>
+        <div class="row switch">
+          <input id="autoToggle" type="checkbox">
+          <div class="toggle" onclick="document.getElementById('autoToggle').click()"></div>
+          <div class="small" id="autoModeLabel">Off</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Automatic Mode</label>
+        <select id="autoMode" class="btn" style="width:100%">
+          <option value="schedule">Schedule (night = ON)</option>
+          <option value="motion">Motion Sensor Simulator</option>
+          <option value="interval">Interval (toggle every N seconds)</option>
+        </select>
+      </div>
+
+      <div id="intervalSettings" style="margin-top:12px;display:none">
+        <label>Interval seconds</label>
+        <input id="intervalSeconds" type="number" min="1" value="5" style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit">
+      </div>
+
+      <div id="motionSettings" style="margin-top:12px;display:none">
+        <label>Simulate motion</label>
+        <div class="row">
+          <button class="btn" id="triggerMotion">Trigger Motion</button>
+          <div class="small">(light stays on for <span id="motionDuration">8</span>s)</div>
+        </div>
+      </div>
+
+      <hr style="margin:16px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+
+      <div>
+        <label>Manual Controls</label>
+        <div class="row" style="margin-top:8px">
+          <button class="btn primary" id="turnOn">Turn ON</button>
+          <button class="btn" id="turnOff">Turn OFF</button>
+          <button class="btn" id="toggle">Toggle</button>
+        </div>
+      </div>
+
+      <div class="status" id="statusText">Status: <strong id="lightState">Unknown</strong></div>
+      <div class="small" style="margin-top:8px">Local time: <span id="localTime"></span></div>
+
+      <footer>How it works: Schedule mode turns the light ON between 18:00 — 06:00 local time. Motion mode turns it on for the configured motion timeout. Interval toggles repeatedly.</footer>
+    </aside>
+  </div>
+
+  <script>
+    // Elements
+    const bulb = document.getElementById('bulb');
+    const autoToggle = document.getElementById('autoToggle');
+    const autoMode = document.getElementById('autoMode');
+    const autoModeLabel = document.getElementById('autoModeLabel');
+    const turnOnBtn = document.getElementById('turnOn');
+    const turnOffBtn = document.getElementById('turnOff');
+    const toggleBtn = document.getElementById('toggle');
+    const statusText = document.getElementById('lightState');
+    const localTimeEl = document.getElementById('localTime');
+    const intervalSettings = document.getElementById('intervalSettings');
+    const motionSettings = document.getElementById('motionSettings');
+    const triggerMotion = document.getElementById('triggerMotion');
+    const intervalSecondsInput = document.getElementById('intervalSeconds');
+    const motionDurationEl = document.getElementById('motionDuration');
+
+    // State
+    let isOn = false;
+    let autoIntervalId = null;
+    let motionTimeoutId = null;
+
+    // Helper to set bulb state
+    function setLight(on){
+      isOn = !!on;
+      bulb.classList.toggle('on', isOn);
+      statusText.textContent = isOn ? 'ON' : 'OFF';
+      statusText.style.color = isOn ? '#ffd24d' : '';
+    }
+
+    // Manual buttons
+    turnOnBtn.addEventListener('click', ()=>{
+      stopAutoIntervalIfIntervalMode();
+      setLight(true);
+    });
+    turnOffBtn.addEventListener('click', ()=>{ setLight(false); });
+    toggleBtn.addEventListener('click', ()=>{ setLight(!isOn); });
+
+    // Auto toggle label
+    autoToggle.addEventListener('change', ()=>{
+      autoModeLabel.textContent = autoToggle.checked ? 'On' : 'Off';
+      applyAutoMode();
+    });
+
+    // When auto mode changes show relevant settings
+    autoMode.addEventListener('change', ()=>{
+      intervalSettings.style.display = autoMode.value === 'interval' ? 'block' : 'none';
+      motionSettings.style.display = autoMode.value === 'motion' ? 'block' : 'none';
+      applyAutoMode();
+    });
+
+    // Interval settings
+    intervalSecondsInput.addEventListener('change', ()=>{ if(autoToggle.checked && autoMode.value==='interval') applyAutoMode(); });
+
+    // Motion simulate
+    triggerMotion.addEventListener('click', ()=>{ simulateMotion(); });
+
+    function stopAutoIntervalIfIntervalMode(){
+      if(autoIntervalId){ clearInterval(autoIntervalId); autoIntervalId = null; }
+    }
+
+    function applyAutoMode(){
+      stopAutoIntervalIfIntervalMode();
+      if(!autoToggle.checked){ return; }
+
+      if(autoMode.value === 'schedule'){
+        // Immediately apply schedule, and set an interval to check every 30s
+        applySchedule();
+        autoIntervalId = setInterval(applySchedule, 30_000);
+      } else if(autoMode.value === 'motion'){
+        // Motion is event driven; no periodic interval needed, but keep time display running
+      } else if(autoMode.value === 'interval'){
+        const s = Math.max(1, Number(intervalSecondsInput.value) || 5);
+        // toggle immediately and then every s seconds
+        setLight(!isOn);
+        autoIntervalId = setInterval(()=> setLight(!isOn), s*1000);
+      }
+    }
+
+    function applySchedule(){
+      // Turn ON between 18:00 (6pm) and 06:00 (6am). Use local time.
+      const now = new Date();
+      const hour = now.getHours();
+      // Night = hour >= 18 OR hour < 6
+      const night = (hour >= 18) || (hour < 6);
+      setLight(night);
+      updateTimeDisplay(now);
+    }
+
+    function updateTimeDisplay(now = new Date()){
+      localTimeEl.textContent = now.toLocaleString();
+    }
+
+    // Motion simulator: turn on for N seconds and then off
+    function simulateMotion(durationSec = 8){
+      // clear existing motion timeout
+      if(motionTimeoutId) clearTimeout(motionTimeoutId);
+      motionDurationEl.textContent = durationSec;
+
+      setLight(true);
+      motionTimeoutId = setTimeout(()=>{
+        // only turn off if auto mode is motion and no other rule forces ON
+        if(autoToggle.checked && autoMode.value === 'motion'){
+          setLight(false);
+        }
+        motionTimeoutId = null;
+      }, durationSec*1000);
+    }
+
+    // Keep local time showing and ensure schedule remains accurate
+    setInterval(()=> updateTimeDisplay(), 1000);
+
+    // initial state: auto off, schedule mode
+    autoToggle.checked = false;
+    autoMode.value = 'schedule';
+    intervalSettings.style.display = 'none';
+    motionSettings.style.display = 'none';
+    setLight(false);
+
+    // Keyboard accessibility: space on toggle element toggles
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'l' || e.key === 'L'){
+        setLight(!isOn);
+      }
+    });
+
+    // If user enables auto after page load, apply the selected auto mode
+    window.addEventListener('focus', ()=>{ if(autoToggle.checked) applyAutoMode(); });
+
+    // Example: allow motion auto to be triggered by a simulated "sensor" every now and then when enabled
+    // (this is optional behavior; it only runs if auto + motion are active)
+    setInterval(()=>{
+      if(autoToggle.checked && autoMode.value === 'motion'){
+        // small random chance of motion event
+        if(Math.random() < 0.12){ simulateMotion(6 + Math.floor(Math.random()*6)); }
+      }
+    }, 4000);
+
+  </script>
+</body>
+</html>
